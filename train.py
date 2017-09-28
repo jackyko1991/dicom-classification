@@ -62,9 +62,9 @@ def parser_init(parser):
 	args.snapshot = "/home/jacky/disk0/projects/Jaw/snapshot-classification"
 	args.epoch = 2500
 	args.train_batch_size = 10
-	args.test_batch_size = 1
+	args.test_batch_size = 2
 	args.workers = 30
-	args.log_interval = 3
+	args.log_interval = 50
 	return args
 
 def load_data(data_path,csv_path,train_batch_size,test_batch_size, workers=0):
@@ -128,8 +128,8 @@ def main(parser):
 		print("Epoch to train is less than the one in snapshot, training abort")
 		return
 
-	torch.backends.cudnn.enabled = False
-	# cudnn.benchmark = True
+	# torch.backends.cudnn.enabled = False
+	cudnn.benchmark = True
 
 	# Data loading code
 	[train_loader, test_loader] = load_data(args.data_folder, args.csv,args.train_batch_size, args.test_batch_size, args.workers)
@@ -274,6 +274,11 @@ def test(test_loader, model, epoch, cuda=True):
 
 	accuracy = AverageMeter()
 
+	TP_count = 0
+	P_count = 0
+	TN_count = 0
+	N_count = 0
+
 	for batch_idx, data in enumerate(test_loader):
 		input = data['image']
 		target =  data['annotation']
@@ -294,15 +299,29 @@ def test(test_loader, model, epoch, cuda=True):
 
 		# measure accuracy
 		_, predicted = torch.max(output.data, 1)
-		print type(predicted)
-		print type(target)
-		print (predicted == target).sum()
-		accuracy.update((predicted == target).sum(), target.size(0))
 
-	print('Testing of epoch {} finished. Average Testing Accuracy: {:.2f}%.'.
-		format(epoch, accuracy.avg*100))
+		for i in range(target.size()[0]):
+			if target[i] == 1:
+				P_count += 1
+			else:
+				N_count += 1
 
-	return accuracy.avg
+			if target[i] == 1 and predicted[i][0] == 1:
+				TP_count += 1
+			elif target[i] == 0 and predicted[i][0] == 0:
+				TN_count += 1
+
+	# print(TP_count,TN_count,P_count,N_count)
+
+	TP = 100.0 * TP_count / P_count
+	TN = 100.0 * TN_count / N_count
+	accuracy = float(TP_count+TN_count)/float(P_count+N_count)
+
+	print('Positive: {}/{}\nNegative: {}/{}'.format(TP_count,P_count,TN_count,N_count))
+	print('Testing of epoch {} finished.\nAverage Testing True Positive: {:.2f}%.\nAverage Testing True Negative: {:.2f}%.\nTesting Accuracy: {:.2f}%.'.
+		format(epoch, TP, TN, accuracy*100.0))
+
+	return accuracy
 
 class AverageMeter(object):
 	"""Computes and stores the average and current value"""
@@ -319,7 +338,7 @@ class AverageMeter(object):
 		self.val = val
 		self.sum += val * n
 		self.count += n
-		self.avg = self.sum / self.count
+		self.avg = float(self.sum) / float(self.count)
 
 
 def adjust_learning_rate(optimizer, epoch):
