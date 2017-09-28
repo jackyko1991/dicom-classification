@@ -60,11 +60,12 @@ def parser_init(parser):
 	args.data_folder = "/home/jacky/disk0/projects/Jaw/Data-DICOM/1_sorted"
 	args.csv = "/home/jacky/disk0/projects/Jaw/classification_annotation/set1_selected.csv"
 	args.snapshot = "/home/jacky/disk0/projects/Jaw/snapshot-classification"
+	args.resume = '/home/jacky/disk0/projects/Jaw/snapshot-classification/snapshot_50.pth.tar'
 	args.epoch = 2500
 	args.train_batch_size = 10
 	args.test_batch_size = 2
 	args.workers = 30
-	args.log_interval = 50
+	args.log_interval = 25
 	return args
 
 def load_data(data_path,csv_path,train_batch_size,test_batch_size, workers=0):
@@ -74,7 +75,7 @@ def load_data(data_path,csv_path,train_batch_size,test_batch_size, workers=0):
 	# 	NDM.Padding(patch_size),\
 	# 	NDM.RandomCrop(patch_size,drop_ratio),\
 	# 	NDM.SitkToTensor(random_rotate=True)])
-	transform = transforms.Compose([DDM.RandomSlice(),
+	transform = transforms.Compose([DDM.RandomSlice(drop_ratio=0.5),
 		DDM.Rescale(224),
 		DDM.ToTensor()])
 	# transform = transforms.Compose([DDM.RandomSlice(),
@@ -313,8 +314,14 @@ def test(test_loader, model, epoch, cuda=True):
 
 	# print(TP_count,TN_count,P_count,N_count)
 
-	TP = 100.0 * TP_count / P_count
-	TN = 100.0 * TN_count / N_count
+	if P_count == 0:
+		TP = 100
+	else:
+		TP = 100.0 * TP_count / P_count
+	if N_count == 0:
+		TN = 100
+	else:
+		TN = 100.0 * TN_count / N_count
 	accuracy = float(TP_count+TN_count)/float(P_count+N_count)
 
 	print('Positive: {}/{}\nNegative: {}/{}'.format(TP_count,P_count,TN_count,N_count))
@@ -339,7 +346,6 @@ class AverageMeter(object):
 		self.sum += val * n
 		self.count += n
 		self.avg = float(self.sum) / float(self.count)
-
 
 def adjust_learning_rate(optimizer, epoch):
 	"""Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""

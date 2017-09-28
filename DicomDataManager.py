@@ -128,22 +128,43 @@ class GetSlice(object):
 class RandomSlice(object):
 	"""
 	Return a random slice and annotation will change to desired boolean value
+	Drop ratio is implemented for randomly dropout selected with empty label. (Default to be 0.1)
+	when drop ratio = 1, all image of that kind will be discarded, else when drop ratio = 0, all image will be accepted
 	"""
-	def __call__(self,sample):
-		image, annotation = sample['image'], sample['annotation']
+	def __init__(self,drop_ratio=0.1):
+		assert isinstance(drop_ratio, float)
+		if drop_ratio >=0 and drop_ratio<=1:
+			self.drop_ratio = drop_ratio
+		else:
+			raise RuntimeError('Drop ratio should be between 0 and 1')
 
-		slice_num = random.randint(0,image.GetSize()[2]-1)
-		
+	def __call__(self,sample):
+		image, annotations = sample['image'], sample['annotation']
+
+		slice_pass = False
+
+		while not slice_pass:
+			slice_num = random.randint(0,image.GetSize()[2]-1)
+			if slice_num in annotations:
+				annotation = 1
+				slice_pass = True
+			else:
+				annotation = 0
+				slice_pass = False
+
+			if annotation == 0 and self.drop(self.drop_ratio):
+				slice_pass = True
+
 		roiFilter = sitk.RegionOfInterestImageFilter()
 		roiFilter.SetSize([image.GetSize()[0],image.GetSize()[1],1])
 		roiFilter.SetIndex([0,0,slice_num])
 
 		image = roiFilter.Execute(image)
 
-		if slice_num in annotation:
-			return {'image': image, 'annotation': 1}
-		else:
-			return {'image': image, 'annotation': 0}
+		return {'image': image, 'annotation': annotation}
+
+	def drop(self,probability):
+		return random.random() <= probability
 
 class ToTensor(object):
 	"""Convert ndarrays in sample to Tensors."""
@@ -301,7 +322,7 @@ class Padding(object):
 
 class RandomCrop(object):
 	"""Crop randomly the image in a sample. This is usually used for data augmentation.
-		Drop ratio is implemented for randomly dropout crops with empty label. (Default to be 0.2)
+		Drop ratio is implemented for randomly dropout crops with empty label. (Default to be 0.1)
 		This transformation only applicable in train mode
 	Args:
 		output_size (tuple or int): Desired output size. If int, cubic crop is made.
