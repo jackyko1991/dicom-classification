@@ -16,10 +16,11 @@ class DicomDataSet(torch.utils.data.Dataset):
 		transform (callable, optional): Optional transform to be applied on the sample
 	"""
 
-	def __init__(self, data_folder, csv_file, transform=None, train=True):
+	def __init__(self, data_folder, csv_file=None, transform=None, train=True):
 		self.data_folder = data_folder
 		self.dirlist = os.listdir(data_folder)
-		self.csv = pd.read_csv(csv_file)
+		if train:
+			self.csv = pd.read_csv(csv_file)
 		self.transform = transform
 		self.train = train
 

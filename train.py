@@ -4,6 +4,8 @@ import shutil
 import time
 import numpy as np
 import timeit
+import DicomDataManager as DDM
+import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
@@ -15,16 +17,12 @@ import torch.utils.data
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
-import DicomDataManager as DDM
-import matplotlib.pyplot as plt
 
-model_names = sorted(name for name in models.__dict__
+def parser_init(parser):
+	model_names = sorted(name for name in models.__dict__
 	if name.islower() and not name.startswith("__")
 	and callable(models.__dict__[name]))
 
-best_prec1 = 0
-
-def parser_init(parser):
 	parser.add_argument('--data-folder', metavar='DIR',default='./data', type=str,
 						help='path to dataset')
 	parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet18',
@@ -57,11 +55,13 @@ def parser_init(parser):
 
 	args = parser.parse_args()
 
+	args.cuda = not args.cuda and torch.cuda.is_available()
+
 	args.data_folder = "/home/jacky/disk0/projects/Jaw/Data-DICOM/1_sorted"
 	args.csv = "/home/jacky/disk0/projects/Jaw/classification_annotation/set1_selected.csv"
 	args.snapshot = "/home/jacky/disk0/projects/Jaw/snapshot-classification"
-	args.resume = '/home/jacky/disk0/projects/Jaw/snapshot-classification/snapshot_50.pth.tar'
-	args.epoch = 2500
+	args.resume = '/home/jacky/disk0/projects/Jaw/snapshot-classification/snapshot_75.pth.tar'
+	args.epochs = 2500
 	args.train_batch_size = 10
 	args.test_batch_size = 2
 	args.workers = 30
@@ -93,6 +93,13 @@ def load_data(data_path,csv_path,train_batch_size,test_batch_size, workers=0):
 def main(parser):
 	args = parser_init(parser)
 
+	if args.cuda and torch.cuda.is_available():
+		print('=> CUDA acceleration: Yes')
+	else:
+		if not torch.cuda.is_available():
+			print('CUDA device not found')
+		print('=> CUDA acceleration: No')
+
 	# create model
 	print("=> creating model '{}'".format(args.arch))
 	model = models.__dict__[args.arch]()
@@ -100,9 +107,11 @@ def main(parser):
 
 	if args.arch.startswith('alexnet') or args.arch.startswith('vgg'):
 		model.features = torch.nn.DataParallel(model.features)
-		model.cuda()
 	else:
-		model = torch.nn.DataParallel(model).cuda()
+		model = torch.nn.DataParallel(model)
+
+	if args.cuda:
+		model.cuda()
 
 	# define loss function (criterion) and optimizer
 	criterion = nn.CrossEntropyLoss().cuda()
@@ -116,7 +125,7 @@ def main(parser):
 	# optionally resume from a checkpoint
 	if args.resume:
 		if os.path.isfile(args.resume):
-			print("=> Loading snapshot '{}'".format(args.resume))
+			print("=> Loading snapshot '{}'...".format(args.resume))
 			snapshot = torch.load(args.resume)
 			start_epoch = snapshot['epoch'] + 1
 			model.load_state_dict(snapshot['state_dict'])
@@ -354,5 +363,5 @@ def adjust_learning_rate(optimizer, epoch):
 		param_group['lr'] = lr
 
 if __name__ == '__main__':
-	parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
+	parser = argparse.ArgumentParser(description='PyTorch ImageNet Trainer')
 	main(parser)
