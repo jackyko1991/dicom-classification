@@ -19,7 +19,7 @@ def parser_init(parser):
 	
 	args = parser.parse_args()
 
-	args.cuda = not args.cuda and torch.cuda.is_available()
+	args.cuda = args.cuda and torch.cuda.is_available()
 
 	# change parser value here
 	args.snapshot = '/home/jacky/disk0/projects/Jaw/snapshot-classification/snapshot_50.pth.tar'
@@ -29,11 +29,8 @@ def parser_init(parser):
 
 def load_data(data_path,workers=0):
 	# apply transform to input data, support multithreaded reading, num_workers=0 refers to use main thread
-	transform = transforms.Compose([DDM.RandomSlice(drop_ratio=0.5),
-		DDM.Rescale(224),
-		DDM.ToTensor()])
-
-	# img_transform = tvTransform.Compose([tvTransform.ToTensor()])
+	transform = transforms.Compose([DDM.Rescale(224,224,0),
+		DDM.ToTensor()])  # 3rd dim with size 0 refers to no change in size
 
 	# load data
 	data_set = data.NiftiDataSet(os.path.join(data_path),transform=data_transform,train=False)

@@ -55,7 +55,7 @@ def parser_init(parser):
 
 	args = parser.parse_args()
 
-	args.cuda = not args.cuda and torch.cuda.is_available()
+	args.cuda = args.cuda and torch.cuda.is_available()
 
 	args.data_folder = "/home/jacky/disk0/projects/Jaw/Data-DICOM/1_sorted"
 	args.csv = "/home/jacky/disk0/projects/Jaw/classification_annotation/set1_selected.csv"
