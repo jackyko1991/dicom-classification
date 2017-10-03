@@ -11,7 +11,6 @@ import torch
 import torch.nn as nn
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
-import torch.distributed as dist
 import torch.optim
 import torch.utils.data
 import torchvision.transforms as transforms
@@ -60,10 +59,10 @@ def parser_init(parser):
 	args.data_folder = "/home/jacky/disk0/projects/Jaw/Data-DICOM/1_sorted"
 	args.csv = "/home/jacky/disk0/projects/Jaw/classification_annotation/set1_selected.csv"
 	args.snapshot = "/home/jacky/disk0/projects/Jaw/snapshot-classification"
-	args.resume = '/home/jacky/disk0/projects/Jaw/snapshot-classification/snapshot_75.pth.tar'
+	args.resume = '/home/jacky/disk0/projects/Jaw/snapshot-classification/snapshot_0.pth.tar'
 	args.epochs = 2500
 	args.train_batch_size = 10
-	args.test_batch_size = 2
+	args.test_batch_size = 12
 	args.workers = 30
 	args.log_interval = 25
 	return args
@@ -216,11 +215,12 @@ def main(parser):
 			if epoch % args.log_interval == 0:
 				snapshot['train_loss'] = train_loss_record
 				snapshot['test_accuracy'] = test_accuracy_record
+				snapshot['arch'] = args.arch
 				snapshot_path = args.snapshot + '/snapshot_' + str(epoch) + '.pth.tar'
-				torch.save(snapshot, snapshot_path)
+				# torch.save(snapshot, snapshot_path)
 				print('Snapshot of epoch {} saved at {}.'.format(epoch, snapshot_path))
 
-	plt.show()
+	# plt.show()
 
 def train(train_loader, model, criterion, optimizer, epoch, cuda=True):
 	losses = AverageMeter()
@@ -249,12 +249,12 @@ def train(train_loader, model, criterion, optimizer, epoch, cuda=True):
 		# plt.ion()
 		# plt.imshow(input_var.data.cpu().numpy()[0,0,...],cmap='gray')
 		# if target.cpu().numpy() == 1:
-		# 	plt.title('True')
+		# 	plt.title('True\nSlice: {}\nCase: {}'.format(data['slice'].numpy()[0],data['case_name']))
 		# else:
-		# 	plt.title('False')
+		# 	plt.title('False\nSlice: {}\nCase: {}'.format(data['slice'].numpy()[0],data['case_name']))
 		# plt.axis('off')
 		# plt.draw()
-		# plt.pause(0.0001)
+		# plt.pause(0.00001)
 
 		# compute output
 		output = model(input_var)
@@ -309,6 +309,18 @@ def test(test_loader, model, epoch, cuda=True):
 
 		# measure accuracy
 		_, predicted = torch.max(output.data, 1)
+
+		# # plot the slice 
+		# fig1 = plt.figure(1)
+		# plt.ion()
+		# plt.imshow(input_var.data.cpu().numpy()[0,0,...],cmap='gray')
+		# if target.cpu().numpy() == 1:
+		# 	plt.title('True, {}'.format(predicted[0][0]))
+		# else:
+		# 	plt.title('False, {}'.format(predicted[0][0]))
+		# plt.axis('off')
+		# plt.draw()
+		# plt.pause(0.0001)
 
 		for i in range(target.size()[0]):
 			if target[i] == 1:

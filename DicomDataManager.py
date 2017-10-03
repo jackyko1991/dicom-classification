@@ -45,7 +45,7 @@ class DicomDataSet(torch.utils.data.Dataset):
 		else:
 			annotation_list = []
 
-		sample = {'image':img, 'annotation': annotation_list}
+		sample = {'image':img, 'annotation': annotation_list, 'case_name': dicomFolder}
 
 		# apply transform to the data if necessary
 		if self.transform:
@@ -75,7 +75,8 @@ class Rescale(object):
 	Args:
 		output_size (int or tuple): Desired output size. If tuple, output is
 			matched to output_size. If int, smaller of image edges is matched
-			to output_size keeping aspect ratio the same.
+			to output_size keeping aspect ratio the same. Set output size to be zero if want to keep that 
+			dimension to be unchanged.
 	"""
 
 	def __init__(self, output_size):
@@ -91,6 +92,10 @@ class Rescale(object):
 
 		self.output_spacing = []
 		for i in range(3):
+			self.output_size = list(self.output_size) # tuple element cannot change directly, need to convert to list first
+			if self.output_size[i] == 0:
+				self.output_size[i] = image.GetSize()[i]
+			self.output_size = tuple(self.output_size)
 			self.output_spacing.append(image.GetSpacing()[i] * (image.GetSize()[i] / float(self.output_size[i])))
 		self.output_spacing = tuple(self.output_spacing)
 
@@ -101,7 +106,7 @@ class Rescale(object):
 		resampler.SetOutputDirection(image.GetDirection())
 		img = resampler.Execute(image);
 
-		return {'image': img, 'annotation': annotation}
+		return {'image': img, 'annotation': annotation, 'case_name': sample['case_name'], 'slice': sample['slice']}
 
 class GetSlice(object):
 	"""
@@ -124,7 +129,7 @@ class GetSlice(object):
 		roiFilter.SetIndex([0,0,slice_num])
 		image = roiFilter.Execute(image)
 
-		return {'image': image, 'annotation':annotation}
+		return {'image': image, 'annotation':annotation, 'case_name': sample['case_name']}
 
 class RandomSlice(object):
 	"""
@@ -146,7 +151,7 @@ class RandomSlice(object):
 
 		while not slice_pass:
 			slice_num = random.randint(0,image.GetSize()[2]-1)
-			if slice_num in annotations:
+			if (image.GetSize()[2]-slice_num) in annotations:
 				annotation = 1
 				slice_pass = True
 			else:
@@ -162,7 +167,7 @@ class RandomSlice(object):
 
 		image = roiFilter.Execute(image)
 
-		return {'image': image, 'annotation': annotation}
+		return {'image': image, 'annotation': annotation, 'case_name': sample['case_name'], 'slice': slice_num+1}
 
 	def drop(self,probability):
 		return random.random() <= probability
@@ -178,7 +183,9 @@ class ToTensor(object):
 		image = image.float()
 
 		return {'image': image,
-				'annotation': annotation}
+				'annotation': annotation,
+				'case_name': sample['case_name'],
+				'slice': sample['slice']}
 
 class Normalization(object):
 	"""Normalize an image by setting its mean to zero and variance to one."""
@@ -188,7 +195,7 @@ class Normalization(object):
 		img, annotation = sample['image'], sample['annotation']
 		img = self.normalizeFilter.Execute(img)
 
-		return {'image': img, 'annotation': annotation}
+		return {'image': img, 'annotation': annotation, 'case_name': sample['case_name']}
 
 class Rotate(object):
 	"""
