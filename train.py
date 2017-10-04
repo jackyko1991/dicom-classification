@@ -62,7 +62,7 @@ def parser_init(parser):
 	args.resume = '/home/jacky/disk0/projects/Jaw/snapshot-classification/snapshot_0.pth.tar'
 	args.epochs = 2500
 	args.train_batch_size = 10
-	args.test_batch_size = 12
+	args.test_batch_size = 2
 	args.workers = 30
 	args.log_interval = 25
 	return args
@@ -217,7 +217,7 @@ def main(parser):
 				snapshot['test_accuracy'] = test_accuracy_record
 				snapshot['arch'] = args.arch
 				snapshot_path = args.snapshot + '/snapshot_' + str(epoch) + '.pth.tar'
-				# torch.save(snapshot, snapshot_path)
+				torch.save(snapshot, snapshot_path)
 				print('Snapshot of epoch {} saved at {}.'.format(epoch, snapshot_path))
 
 	# plt.show()
