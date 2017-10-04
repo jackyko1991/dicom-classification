@@ -101,13 +101,17 @@ class Rescale(object):
 
 		resampler = sitk.ResampleImageFilter()
 		resampler.SetSize(self.output_size);
-		resampler.SetOutputSpacing(self.output_spacing);
+		resampler.SetOutputSpacing(self.output_spacing)
 		resampler.SetOutputOrigin(image.GetOrigin())
 		resampler.SetOutputDirection(image.GetDirection())
 		resampler.SetNumberOfThreads(30)
-		img = resampler.Execute(image);
+		img = resampler.Execute(image)
 
-		return {'image': img, 'annotation': annotation, 'case_name': sample['case_name'], 'slice': sample['slice']}
+		try:
+			slice_num = sample['slice']
+			return {'image': img, 'annotation': annotation, 'case_name': sample['case_name'], 'slice': slice_num}
+		except KeyError:
+			return {'image': img, 'annotation': annotation, 'case_name': sample['case_name']}	
 
 class GetSlice(object):
 	"""
@@ -183,10 +187,16 @@ class ToTensor(object):
 		image = torch.from_numpy(sitk.GetArrayFromImage(image))
 		image = image.float()
 
-		return {'image': image,
-				'annotation': annotation,
-				'case_name': sample['case_name'],
-				'slice': sample['slice']}
+		try:
+			slice_num = sample['slice']
+			return {'image': image, 
+			'annotation': annotation, 
+			'case_name': sample['case_name'], 
+			'slice': slice_num}
+		except KeyError:
+			return {'image': image, 
+			'annotation': annotation, 
+			'case_name': sample['case_name']}	
 
 class Normalization(object):
 	"""Normalize an image by setting its mean to zero and variance to one."""

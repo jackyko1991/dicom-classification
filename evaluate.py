@@ -32,7 +32,7 @@ def parser_init(parser):
 	args.cuda = args.cuda and torch.cuda.is_available()
 
 	# change parser value here
-	args.snapshot = '/home/jacky/disk0/projects/Jaw/snapshot-classification/snapshot_2500.pth.tar'
+	args.snapshot = '/home/jacky/disk0/projects/Jaw/snapshot-classification/snapshot_225.pth.tar'
 	args.data_folder = "/home/jacky/disk0/projects/Jaw/Data-DICOM/1_sorted/test"
 	args.arch = 'resnet18'
 	
@@ -80,19 +80,19 @@ def evaluate(data_loader,model,batch_size,cuda=True,probability=False):
 			if predicted.cpu().numpy() == 1:
 				true_list.append(slice_num+1)
 
-			# # plot the slice 
-			# fig1 = plt.figure(1)
-			# plt.ion()
-			# plt.imshow(input_var.data.cpu().numpy()[0,0,...],cmap='gray')
-			# if predicted.cpu().numpy() == 1:
-			# 	plt.title('True, Slice: {}/{}'.format(slice_num+1,img.size()[1]))
-			# 	print(predicted.cpu().numpy(),slice_num+1)
-			# else:
-			# 	plt.title('False, Slice: {}/{}'.format(slice_num+1,img.size()[1]))
-			# 	print(predicted.cpu().numpy(),slice_num+1)
-			# plt.axis('off')
-			# plt.draw()
-			# plt.pause(0.0001)
+		# 	# plot the slice 
+		# 	fig1 = plt.figure(1)
+		# 	plt.ion()
+		# 	plt.imshow(input_var.data.cpu().numpy()[0,0,...],cmap='gray')
+		# 	if predicted.cpu().numpy() == 1:
+		# 		plt.title('True, Slice: {}/{}'.format(slice_num+1,img.size()[1]))
+		# 		print(predicted.cpu().numpy(),slice_num+1)
+		# 	else:
+		# 		plt.title('False, Slice: {}/{}'.format(slice_num+1,img.size()[1]))
+		# 		print(predicted.cpu().numpy(),slice_num+1)
+		# 	plt.axis('off')
+		# 	plt.draw()
+		# 	plt.pause(0.0001)
 		# plt.close(fig1)
 
 		batchTime = timeit.default_timer() - timer
