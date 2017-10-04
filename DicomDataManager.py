@@ -104,6 +104,7 @@ class Rescale(object):
 		resampler.SetOutputSpacing(self.output_spacing);
 		resampler.SetOutputOrigin(image.GetOrigin())
 		resampler.SetOutputDirection(image.GetDirection())
+		resampler.SetNumberOfThreads(30)
 		img = resampler.Execute(image);
 
 		return {'image': img, 'annotation': annotation, 'case_name': sample['case_name'], 'slice': sample['slice']}
