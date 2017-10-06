@@ -61,7 +61,7 @@ def parser_init(parser):
 	args.snapshot = "/home/jacky/disk0/projects/Jaw/snapshot-classification"
 	args.resume = '/home/jacky/disk0/projects/Jaw/snapshot-classification/snapshot_0.pth.tar'
 	args.epochs = 2500
-	args.train_batch_size = 1
+	args.train_batch_size = 10
 	args.test_batch_size = 2
 	args.workers = 30
 	args.log_interval = 25
@@ -74,7 +74,7 @@ def load_data(data_path,csv_path,train_batch_size,test_batch_size, workers=0):
 	# 	NDM.Padding(patch_size),\
 	# 	NDM.RandomCrop(patch_size,drop_ratio),\
 	# 	NDM.SitkToTensor(random_rotate=True)])
-	transform = transforms.Compose([DDM.RandomSlice(drop_ratio_nil=0.1,drop_ratio_lower=0.6),
+	transform = transforms.Compose([DDM.RandomSlice(drop_ratio_nil=0.05,drop_ratio_lower=0.3),
 		DDM.Rescale(224),
 		DDM.ToTensor()])
 	# transform = transforms.Compose([DDM.RandomSlice(),

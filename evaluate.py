@@ -64,7 +64,8 @@ def evaluate(data_loader,model,batch_size,cuda=True,probability=False):
 		# get the inputs
 		img = data['image']
 
-		true_list=[]
+		lower_list=[]
+		upper_list=[]
 		timer = timeit.default_timer()
 		print(data['case_name'])
 
@@ -84,26 +85,31 @@ def evaluate(data_loader,model,batch_size,cuda=True,probability=False):
 
 			slice_num = img.size()[1]-slice_num
 			if predicted.cpu().numpy() == 1:
-				true_list.append(int(slice_num))
+				lower_list.append(int(slice_num))
+			elif predicted.cpu().numpy() == 2:
+				upper_list.append(int(slice_num))
 
-		# 	# plot the slice 
-		# 	fig1 = plt.figure(1)
-		# 	plt.ion()
-		# 	plt.imshow(input_var.data.cpu().numpy()[0,0,...],cmap='gray')
-		# 	if predicted.cpu().numpy() == 1:
-		# 		plt.title('True, Slice: {}/{}'.format(slice_num,img.size()[1]))
-		# 		print(predicted.cpu().numpy(),slice_num)
-		# 	else:
-		# 		plt.title('False, Slice: {}/{}'.format(slice_num,img.size()[1]))
-		# 		print(predicted.cpu().numpy(),slice_num)
-		# 	plt.axis('off')
-		# 	plt.draw()
-		# 	plt.pause(0.0001)
-		# plt.close(fig1)
+			# plot the slice 
+			fig1 = plt.figure(1)
+			plt.ion()
+			plt.imshow(input_var.data.cpu().numpy()[0,0,...],cmap='gray')
+			if predicted.cpu().numpy() == 1:
+				plt.title('Lower, Slice: {}/{}'.format(slice_num,img.size()[1]))
+				print(predicted.cpu().numpy(),slice_num)
+			elif predicted.cpu().numpy() == 2:
+				plt.title('Upper, Slice: {}/{}'.format(slice_num,img.size()[1]))
+				print(predicted.cpu().numpy(),slice_num)
+			else:
+				plt.title('Nil, Slice: {}/{}'.format(slice_num,img.size()[1]))
+				print(predicted.cpu().numpy(),slice_num)
+			plt.axis('off')
+			plt.draw()
+			plt.pause(0.0001)
+		plt.close(fig1)
 
 		batchTime = timeit.default_timer() - timer
 
-		result.append([data['case_name'],sorted(true_list)])
+		result.append([data['case_name'],sorted(lower_list),sorted(upper_list)])
 	return result
 
 def main(parser):
@@ -154,37 +160,42 @@ def main(parser):
 	# process the result into csv
 	for i in range(len(result)):
 		case = os.path.basename(result[i][0][0])
-		slice_list_of_list = []
-
-		# use kmean clustering to classify upper jaw and lower jaw
-		for slice_num in result[i][1]:
-			slice_list_of_list.append([slice_num])
-
-		kmeans = KMeans(n_clusters=2, random_state=0).fit(slice_list_of_list)
-
-		upper = []
-		lower = []
-
-		if kmeans.cluster_centers_[0] < kmeans.cluster_centers_[1]:
-			upper_idx = 0
-			lower_idx = 1
-		else:
-			upper_idx = 1
-			lower_idx = 0
-
-		for j in range(len(result[i][1])):
-			if kmeans.labels_[j] == upper_idx:
-				upper.append(result[i][1][j])
-			else:
-				lower.append(result[i][1][j])
-
-		upper_range = str(min(upper))+'-'+str(max(upper))
-		lower_range = str(min(lower))+'-'+str(max(lower))
-		
-		print result[i]
+		lower = result[i][1]
+		upper = result[i][2]
 		print case
-		print upper_range
-		print lower_range
+		print lower
+		print upper
+		# slice_list_of_list = []
+
+		# # use kmean clustering to classify upper jaw and lower jaw
+		# for slice_num in result[i][1]:
+		# 	slice_list_of_list.append([slice_num])
+
+		# kmeans = KMeans(n_clusters=2, random_state=0).fit(slice_list_of_list)
+
+		# upper = []
+		# lower = []
+
+		# if kmeans.cluster_centers_[0] < kmeans.cluster_centers_[1]:
+		# 	upper_idx = 0
+		# 	lower_idx = 1
+		# else:
+		# 	upper_idx = 1
+		# 	lower_idx = 0
+
+		# for j in range(len(result[i][1])):
+		# 	if kmeans.labels_[j] == upper_idx:
+		# 		upper.append(result[i][1][j])
+		# 	else:
+		# 		lower.append(result[i][1][j])
+
+		# upper_range = str(min(upper))+'-'+str(max(upper))
+		# lower_range = str(min(lower))+'-'+str(max(lower))
+		
+		# print result[i]
+		# print case
+		# print upper_range
+		# print lower_range
 
 if __name__=="__main__":
 	parser = argparse.ArgumentParser(description='PyTorch ImageNet Evaluation Tool')
