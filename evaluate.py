@@ -4,6 +4,7 @@ import DicomDataManager as DDM
 import os
 import numpy as np
 import timeit
+from sklearn.cluster import KMeans
 
 import torch
 import torch.nn as nn
@@ -32,7 +33,7 @@ def parser_init(parser):
 	args.cuda = args.cuda and torch.cuda.is_available()
 
 	# change parser value here
-	args.snapshot = '/home/jacky/disk0/projects/Jaw/snapshot-classification/snapshot_225.pth.tar'
+	args.snapshot = '/home/jacky/disk0/projects/Jaw/snapshot-classification/snapshot_2500.pth.tar'
 	args.data_folder = "/home/jacky/disk0/projects/Jaw/Data-DICOM/1_sorted/test"
 	args.arch = 'resnet18'
 	
@@ -57,12 +58,16 @@ def evaluate(data_loader,model,batch_size,cuda=True,probability=False):
 		model.cuda()
 		cudnn.benchmark = True
 
+	result = []
+
 	for batch_idx, data in enumerate(data_loader):
 		# get the inputs
 		img = data['image']
 
 		true_list=[]
 		timer = timeit.default_timer()
+		print(data['case_name'])
+
 		for slice_num in range(img.size()[1]):
 			input = img[:,slice_num:slice_num+1,:,:]
 
@@ -77,27 +82,29 @@ def evaluate(data_loader,model,batch_size,cuda=True,probability=False):
 			output = model(input_var)
 			_, predicted = torch.max(output.data, 1)
 
+			slice_num = img.size()[1]-slice_num
 			if predicted.cpu().numpy() == 1:
-				true_list.append(slice_num+1)
+				true_list.append(int(slice_num))
 
 		# 	# plot the slice 
 		# 	fig1 = plt.figure(1)
 		# 	plt.ion()
 		# 	plt.imshow(input_var.data.cpu().numpy()[0,0,...],cmap='gray')
 		# 	if predicted.cpu().numpy() == 1:
-		# 		plt.title('True, Slice: {}/{}'.format(slice_num+1,img.size()[1]))
-		# 		print(predicted.cpu().numpy(),slice_num+1)
+		# 		plt.title('True, Slice: {}/{}'.format(slice_num,img.size()[1]))
+		# 		print(predicted.cpu().numpy(),slice_num)
 		# 	else:
-		# 		plt.title('False, Slice: {}/{}'.format(slice_num+1,img.size()[1]))
-		# 		print(predicted.cpu().numpy(),slice_num+1)
+		# 		plt.title('False, Slice: {}/{}'.format(slice_num,img.size()[1]))
+		# 		print(predicted.cpu().numpy(),slice_num)
 		# 	plt.axis('off')
 		# 	plt.draw()
 		# 	plt.pause(0.0001)
 		# plt.close(fig1)
 
 		batchTime = timeit.default_timer() - timer
-		print(data['case_name'],true_list,batchTime)
-		exit()
+
+		result.append([data['case_name'],sorted(true_list)])
+	return result
 
 def main(parser):
 	args = parser_init(parser)
@@ -142,7 +149,42 @@ def main(parser):
 	print 'loading data...'
 	data_loader = load_data(args.data_folder)
 	print 'finish loading data'
-	evaluate(data_loader,model,1,args.cuda)
+	result = evaluate(data_loader,model,1,args.cuda)
+
+	# process the result into csv
+	for i in range(len(result)):
+		case = os.path.basename(result[i][0][0])
+		slice_list_of_list = []
+
+		# use kmean clustering to classify upper jaw and lower jaw
+		for slice_num in result[i][1]:
+			slice_list_of_list.append([slice_num])
+
+		kmeans = KMeans(n_clusters=2, random_state=0).fit(slice_list_of_list)
+
+		upper = []
+		lower = []
+
+		if kmeans.cluster_centers_[0] < kmeans.cluster_centers_[1]:
+			upper_idx = 0
+			lower_idx = 1
+		else:
+			upper_idx = 1
+			lower_idx = 0
+
+		for j in range(len(result[i][1])):
+			if kmeans.labels_[j] == upper_idx:
+				upper.append(result[i][1][j])
+			else:
+				lower.append(result[i][1][j])
+
+		upper_range = str(min(upper))+'-'+str(max(upper))
+		lower_range = str(min(lower))+'-'+str(max(lower))
+		
+		print result[i]
+		print case
+		print upper_range
+		print lower_range
 
 if __name__=="__main__":
 	parser = argparse.ArgumentParser(description='PyTorch ImageNet Evaluation Tool')

@@ -39,13 +39,15 @@ class DicomDataSet(torch.utils.data.Dataset):
 			csv_idx = self.csv.Name[self.csv.Name == dicom_name].index.tolist()[0]
 			annotation = self.csv.ix[csv_idx, 1:].as_matrix()
 
-			annotation_list = []
-			annotation_list.extend(self.StringRangeToList(annotation[0]))
-			annotation_list.extend(self.StringRangeToList(annotation[1]))
+			annotation_lower = []
+			annotation_upper = []
+			annotation_lower.extend(self.StringRangeToList(annotation[0]))
+			annotation_upper.extend(self.StringRangeToList(annotation[1]))
 		else:
-			annotation_list = []
+			annotation_lower = []
+			annotation_upper = []
 
-		sample = {'image':img, 'annotation': annotation_list, 'case_name': dicomFolder}
+		sample = {'image':img, 'annotation': [annotation_lower,annotation_upper], 'case_name': dicomFolder}
 
 		# apply transform to the data if necessary
 		if self.transform:
@@ -113,39 +115,45 @@ class Rescale(object):
 		except KeyError:
 			return {'image': img, 'annotation': annotation, 'case_name': sample['case_name']}	
 
-class GetSlice(object):
-	"""
-	Get the dicom slice according to the desired location
+# class GetSlice(object):
+# 	"""
+# 	Get the dicom slice according to the desired location
 
-	Args:
-		slice_num (int): Desired output slice number.
-	"""
+# 	Args:
+# 		slice_num (int): Desired output slice number.
+# 	"""
 
-	def __init__(self,slice_num):
-		assert isinstance(slice_num, int)
-		self.slice_num = slice_num
+# 	def __init__(self,slice_num):
+# 		assert isinstance(slice_num, int)
+# 		self.slice_num = slice_num
 
-	def __call__(self,sample):
-		image, annotation = sample['image'], sample['annotation']
+# 	def __call__(self,sample):
+# 		image, annotation = sample['image'], sample['annotation']
 
-		size_old = image.GetSize()
-		roiFilter = sitk.RegionOfInterestImageFilter()
-		roiFilter.SetSize([size_old[0],size_old[1],1])
-		roiFilter.SetIndex([0,0,slice_num])
-		image = roiFilter.Execute(image)
+# 		size_old = image.GetSize()
+# 		roiFilter = sitk.RegionOfInterestImageFilter()
+# 		roiFilter.SetSize([size_old[0],size_old[1],1])
+# 		roiFilter.SetIndex([0,0,slice_num])
+# 		image = roiFilter.Execute(image)
 
-		return {'image': image, 'annotation':annotation, 'case_name': sample['case_name']}
+# 		return {'image': image, 'annotation':annotation, 'case_name': sample['case_name']}
 
 class RandomSlice(object):
 	"""
 	Return a random slice and annotation will change to desired boolean value
 	Drop ratio is implemented for randomly dropout selected with empty label. (Default to be 0.1)
-	when drop ratio = 1, all image of that kind will be discarded, else when drop ratio = 0, all image will be accepted
+	when drop ratio = 0, all image of that kind will be discarded, else when drop ratio = 1, all image will be accepted
 	"""
-	def __init__(self,drop_ratio=0.1):
-		assert isinstance(drop_ratio, float)
-		if drop_ratio >=0 and drop_ratio<=1:
-			self.drop_ratio = drop_ratio
+	def __init__(self,drop_ratio_nil=0.1,drop_ratio_upper=1.0, drop_ratio_lower=1.0):
+		assert isinstance(drop_ratio_nil, float)
+		assert isinstance(drop_ratio_upper, float)
+		assert isinstance(drop_ratio_lower, float)
+		if drop_ratio_nil >=0 and drop_ratio_nil<=1:
+			self.drop_ratio_nil = drop_ratio_nil
+		if drop_ratio_upper >=0 and drop_ratio_upper<=1:
+			self.drop_ratio_upper = drop_ratio_upper
+		if drop_ratio_lower >=0 and drop_ratio_lower<=1:
+			self.drop_ratio_lower = drop_ratio_lower
 		else:
 			raise RuntimeError('Drop ratio should be between 0 and 1')
 
@@ -156,15 +164,18 @@ class RandomSlice(object):
 
 		while not slice_pass:
 			slice_num = random.randint(0,image.GetSize()[2]-1)
-			if (image.GetSize()[2]-slice_num) in annotations:
+			if (image.GetSize()[2]-slice_num) in annotations[0]:
 				annotation = 1
-				slice_pass = True
+				if self.drop(self.drop_ratio_lower):
+					slice_pass = True
+			elif (image.GetSize()[2]-slice_num) in annotations[1]:
+				annotation = 2
+				if self.drop(self.drop_ratio_upper):
+					slice_pass = True
 			else:
 				annotation = 0
-				slice_pass = False
-
-			if annotation == 0 and self.drop(self.drop_ratio):
-				slice_pass = True
+				if self.drop(self.drop_ratio_nil):
+					slice_pass = True
 
 		roiFilter = sitk.RegionOfInterestImageFilter()
 		roiFilter.SetSize([image.GetSize()[0],image.GetSize()[1],1])

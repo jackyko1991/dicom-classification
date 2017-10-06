@@ -61,7 +61,7 @@ def parser_init(parser):
 	args.snapshot = "/home/jacky/disk0/projects/Jaw/snapshot-classification"
 	args.resume = '/home/jacky/disk0/projects/Jaw/snapshot-classification/snapshot_0.pth.tar'
 	args.epochs = 2500
-	args.train_batch_size = 10
+	args.train_batch_size = 1
 	args.test_batch_size = 2
 	args.workers = 30
 	args.log_interval = 25
@@ -74,7 +74,7 @@ def load_data(data_path,csv_path,train_batch_size,test_batch_size, workers=0):
 	# 	NDM.Padding(patch_size),\
 	# 	NDM.RandomCrop(patch_size,drop_ratio),\
 	# 	NDM.SitkToTensor(random_rotate=True)])
-	transform = transforms.Compose([DDM.RandomSlice(drop_ratio=0.5),
+	transform = transforms.Compose([DDM.RandomSlice(drop_ratio_nil=0.1,drop_ratio_lower=0.6),
 		DDM.Rescale(224),
 		DDM.ToTensor()])
 	# transform = transforms.Compose([DDM.RandomSlice(),
@@ -102,7 +102,7 @@ def main(parser):
 	# create model
 	print("=> creating model '{}'".format(args.arch))
 	model = models.__dict__[args.arch]()
-	model.fc = nn.Linear(512, 2) # assuming that the fc layer has 512 neurons with 2 classes, otherwise change it 
+	model.fc = nn.Linear(512, 3) # assuming that the fc layer has 512 neurons with 3 classes, otherwise change it 
 
 	if args.arch.startswith('alexnet') or args.arch.startswith('vgg'):
 		model.features = torch.nn.DataParallel(model.features)
@@ -220,8 +220,6 @@ def main(parser):
 				torch.save(snapshot, snapshot_path)
 				print('Snapshot of epoch {} saved at {}.'.format(epoch, snapshot_path))
 
-	# plt.show()
-
 def train(train_loader, model, criterion, optimizer, epoch, cuda=True):
 	losses = AverageMeter()
 
@@ -249,9 +247,11 @@ def train(train_loader, model, criterion, optimizer, epoch, cuda=True):
 		# plt.ion()
 		# plt.imshow(input_var.data.cpu().numpy()[0,0,...],cmap='gray')
 		# if target.cpu().numpy() == 1:
-		# 	plt.title('True\nSlice: {}\nCase: {}'.format(data['slice'].numpy()[0],data['case_name']))
+		# 	plt.title('Lower\nSlice: {}\nCase: {}'.format(data['slice'].numpy()[0],data['case_name']))
+		# elif target.cpu().numpy() == 2:
+		# 	plt.title('Upper\nSlice: {}\nCase: {}'.format(data['slice'].numpy()[0],data['case_name']))
 		# else:
-		# 	plt.title('False\nSlice: {}\nCase: {}'.format(data['slice'].numpy()[0],data['case_name']))
+		# 	plt.title('Nil\nSlice: {}\nCase: {}'.format(data['slice'].numpy()[0],data['case_name']))
 		# plt.axis('off')
 		# plt.draw()
 		# plt.pause(0.00001)
@@ -284,10 +284,12 @@ def test(test_loader, model, epoch, cuda=True):
 
 	accuracy = AverageMeter()
 
-	TP_count = 0
-	P_count = 0
-	TN_count = 0
-	N_count = 0
+	L_count = 0 #lower slice count
+	U_count = 0 #upper slice count
+	N_count = 0 #nil slice count
+	TL_count = 0 # true lower slice count
+	TU_count = 0 # true upper slice count
+	TN_count = 0 # true nil slice count
 
 	for batch_idx, data in enumerate(test_loader):
 		input = data['image']
@@ -324,30 +326,40 @@ def test(test_loader, model, epoch, cuda=True):
 
 		for i in range(target.size()[0]):
 			if target[i] == 1:
-				P_count += 1
+				L_count += 1
+			elif target[i] == 2:
+				U_count += 1
 			else:
 				N_count += 1
 
 			if target[i] == 1 and predicted[i][0] == 1:
-				TP_count += 1
+				TL_count += 1
+			elif target[i] == 2 and predicted[i][0] == 2:
+				TU_count += 1
 			elif target[i] == 0 and predicted[i][0] == 0:
 				TN_count += 1
 
 	# print(TP_count,TN_count,P_count,N_count)
 
-	if P_count == 0:
-		TP = 100
+	if L_count == 0:
+		TL = 100
 	else:
-		TP = 100.0 * TP_count / P_count
+		TL = 100.0 * TL_count / L_count
+
+	if U_count == 0:
+		TU = 100
+	else:
+		TU = 100.0 * TU_count / U_count
+
 	if N_count == 0:
 		TN = 100
 	else:
 		TN = 100.0 * TN_count / N_count
-	accuracy = float(TP_count+TN_count)/float(P_count+N_count)
+	accuracy = float(TL_count+TN_count+TU_count)/float(L_count+N_count+U_count)
 
-	print('Positive: {}/{}\nNegative: {}/{}'.format(TP_count,P_count,TN_count,N_count))
-	print('Testing of epoch {} finished.\nAverage Testing True Positive: {:.2f}%.\nAverage Testing True Negative: {:.2f}%.\nTesting Accuracy: {:.2f}%.'.
-		format(epoch, TP, TN, accuracy*100.0))
+	print('Upper: {}/{}\nLower: {}/{}\nNil: {}/{}'.format(TU_count,U_count,TL_count,L_count,TN_count,N_count))
+	print('Testing of epoch {} finished.\nAverage Testing True Upper: {:.2f}%.\nAverage Testing True Lower: {:.2f}%.\nAverage Testing True Nil: {:.2f}%.\nTesting Accuracy: {:.2f}%.'.
+		format(epoch, TU, TL, TN, accuracy*100.0))
 
 	return accuracy
 
