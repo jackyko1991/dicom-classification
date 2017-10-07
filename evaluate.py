@@ -180,8 +180,10 @@ def main(parser):
 			
 
 	# process the result into csv
-	lower_accuracy_avg = 0
-	upper_accuracy_avg = 0
+	lower_accuracy_tp_avg = 0
+	upper_accuracy_tp_avg = 0
+	lower_accuracy_fp_avg = 0
+	upper_accuracy_fp_avg = 0
 
 	for i in range(len(result)):
 		case = os.path.basename(result[i][0][0])
@@ -197,21 +199,27 @@ def main(parser):
 		lower_list_GT = StringRangeToList(csv_data.ix[csv_idx, 1:].as_matrix()[0])
 		upper_list_GT = StringRangeToList(csv_data.ix[csv_idx, 1:].as_matrix()[1])
 
-		print len(set(lower) & set(lower_list_GT))
-		print len(lower_list_GT)
-		print len(set(upper) & set(upper_list_GT))
-		print len(upper_list_GT)
-		lower_accuracy = float(len(set(lower) & set(lower_list_GT)))/len(lower_list_GT)
-		upper_accuracy = float(len(set(upper) & set(upper_list_GT)))/len(upper_list_GT)
+		lower_tp_accuracy = float(len(set(lower) & set(lower_list_GT)))/len(lower_list_GT)
+		upper_tp_accuracy = float(len(set(upper) & set(upper_list_GT)))/len(upper_list_GT)
 
-		lower_accuracy_avg += lower_accuracy
-		upper_accuracy_avg += upper_accuracy
+		# lower_fp_accuracy = (len(lower)-float(len(set(lower) & set(lower_list_GT))))/len(lower_list_GT)
+		# upper_fp_accuracy = (len(upper)-float(len(set(upper) & set(upper_list_GT))))/len(upper_list_GT)
+		lower_fp_count = len(lower)-len(set(lower) & set(lower_list_GT))
+		upper_fp_count = len(upper)-len(set(upper) & set(upper_list_GT))
+
+		lower_accuracy_tp_avg += lower_tp_accuracy
+		upper_accuracy_tp_avg += upper_tp_accuracy
+
+		# lower_accuracy_fp_avg += lower_fp_accuracy
+		# upper_accuracy_fp_avg += upper_fp_accuracy
 
 		print case
-		print("Lower TP accuracy = {:.2f}%\nUpper TP accuracy = {:.2f}%".format(lower_accuracy*100.0,upper_accuracy*100.0))
+		print("Lower TP accuracy = {:.2f}%\nUpper TP accuracy = {:.2f}%".format(lower_tp_accuracy*100.0,upper_tp_accuracy*100.0))
+		# print("Lower FP accuracy = {:.2f}%\nUpper FP accuracy = {:.2f}%".format(lower_fp_accuracy*100.0,upper_fp_accuracy*100.0))
+		print("Lower FP count = {}\nUpper FP count = {}".format(lower_fp_count,upper_fp_count))
 
-
-	print("Avg Lower TP accuracy = {:.2f}%\nAvg Upper TP accuracy = {:.2f}%".format(lower_accuracy_avg/len(result)*100.0,upper_accuracy_avg/len(result)*100.0))
+	print("Avg Lower TP accuracy = {:.2f}%\nAvg Upper TP accuracy = {:.2f}%".format(lower_accuracy_tp_avg/len(result)*100.0,upper_accuracy_tp_avg/len(result)*100.0))
+	# print("Avg Lower FP accuracy = {:.2f}%\nAvg Upper FP accuracy = {:.2f}%".format(lower_accuracy_fp_avg/len(result)*100.0,upper_accuracy_fp_avg/len(result)*100.0))
 		# slice_list_of_list = []
 
 		# # use kmean clustering to classify upper jaw and lower jaw
