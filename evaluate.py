@@ -5,6 +5,7 @@ import os
 import numpy as np
 import timeit
 from sklearn.cluster import KMeans
+import pandas as pd
 
 import torch
 import torch.nn as nn
@@ -33,7 +34,7 @@ def parser_init(parser):
 	args.cuda = args.cuda and torch.cuda.is_available()
 
 	# change parser value here
-	args.snapshot = '/home/jacky/disk0/projects/Jaw/snapshot-classification/snapshot_2500.pth.tar'
+	args.snapshot = '/home/jacky/disk0/projects/Jaw/snapshot-classification/snapshot_1450.pth.tar'
 	args.data_folder = "/home/jacky/disk0/projects/Jaw/Data-DICOM/1_sorted/test"
 	args.arch = 'resnet18'
 	
@@ -89,27 +90,43 @@ def evaluate(data_loader,model,batch_size,cuda=True,probability=False):
 			elif predicted.cpu().numpy() == 2:
 				upper_list.append(int(slice_num))
 
-			# plot the slice 
-			fig1 = plt.figure(1)
-			plt.ion()
-			plt.imshow(input_var.data.cpu().numpy()[0,0,...],cmap='gray')
-			if predicted.cpu().numpy() == 1:
-				plt.title('Lower, Slice: {}/{}'.format(slice_num,img.size()[1]))
-				print(predicted.cpu().numpy(),slice_num)
-			elif predicted.cpu().numpy() == 2:
-				plt.title('Upper, Slice: {}/{}'.format(slice_num,img.size()[1]))
-				print(predicted.cpu().numpy(),slice_num)
-			else:
-				plt.title('Nil, Slice: {}/{}'.format(slice_num,img.size()[1]))
-				print(predicted.cpu().numpy(),slice_num)
-			plt.axis('off')
-			plt.draw()
-			plt.pause(0.0001)
-		plt.close(fig1)
+		# 	# plot the slice 
+		# 	fig1 = plt.figure(1)
+		# 	plt.ion()
+		# 	plt.imshow(input_var.data.cpu().numpy()[0,0,...],cmap='gray')
+		# 	if predicted.cpu().numpy() == 1:
+		# 		plt.title('Lower, Slice: {}/{}'.format(slice_num,img.size()[1]))
+		# 		print(predicted.cpu().numpy(),slice_num)
+		# 	elif predicted.cpu().numpy() == 2:
+		# 		plt.title('Upper, Slice: {}/{}'.format(slice_num,img.size()[1]))
+		# 		print(predicted.cpu().numpy(),slice_num)
+		# 	else:
+		# 		plt.title('Nil, Slice: {}/{}'.format(slice_num,img.size()[1]))
+		# 		print(predicted.cpu().numpy(),slice_num)
+		# 	plt.axis('off')
+		# 	plt.draw()
+		# 	plt.pause(0.0001)
+		# plt.close(fig1)
 
 		batchTime = timeit.default_timer() - timer
 
 		result.append([data['case_name'],sorted(lower_list),sorted(upper_list)])
+	return result
+
+def reject_outliers(data, m=2):
+	data=np.asarray(data)
+	return data[abs(data - np.mean(data)) < m * np.std(data)]
+
+def StringRangeToList(stringRange):
+	result = []
+	for part in stringRange.split(','):
+		if '-' in part:
+			a, b = part.split('-')
+			a, b = int(a), int(b)
+			result.extend(range(a, b + 1))
+		else:
+			a = int(part)
+			result.append(a)
 	return result
 
 def main(parser):
@@ -138,7 +155,7 @@ def main(parser):
 
 	print("=> creating model '{}'".format(arch))
 	model = models.__dict__[arch]()
-	model.fc = nn.Linear(512, 2) # assuming that the fc layer has 512 neurons with 2 classes, otherwise change it 
+	model.fc = nn.Linear(512, 3) # assuming that the fc layer has 512 neurons with 2 classes, otherwise change it 
 
 	if arch.startswith('alexnet') or arch.startswith('vgg'):
 		model.features = torch.nn.DataParallel(model.features)
@@ -157,14 +174,44 @@ def main(parser):
 	print 'finish loading data'
 	result = evaluate(data_loader,model,1,args.cuda)
 
+	# load result csv to check accuracy
+	csv_file = "/home/jacky/disk0/projects/Jaw/classification_annotation/set1_selected.csv"
+	csv_data = pd.read_csv(csv_file)
+			
+
 	# process the result into csv
+	lower_accuracy_avg = 0
+	upper_accuracy_avg = 0
+
 	for i in range(len(result)):
 		case = os.path.basename(result[i][0][0])
 		lower = result[i][1]
 		upper = result[i][2]
+
+		# remove outliners from lower and upper list
+		lower = reject_outliers(lower)
+		upper = reject_outliers(upper)
+
+		# check accuracy
+		csv_idx = csv_data.Name[csv_data.Name == case].index.tolist()[0]
+		lower_list_GT = StringRangeToList(csv_data.ix[csv_idx, 1:].as_matrix()[0])
+		upper_list_GT = StringRangeToList(csv_data.ix[csv_idx, 1:].as_matrix()[1])
+
+		print len(set(lower) & set(lower_list_GT))
+		print len(lower_list_GT)
+		print len(set(upper) & set(upper_list_GT))
+		print len(upper_list_GT)
+		lower_accuracy = float(len(set(lower) & set(lower_list_GT)))/len(lower_list_GT)
+		upper_accuracy = float(len(set(upper) & set(upper_list_GT)))/len(upper_list_GT)
+
+		lower_accuracy_avg += lower_accuracy
+		upper_accuracy_avg += upper_accuracy
+
 		print case
-		print lower
-		print upper
+		print("Lower TP accuracy = {:.2f}%\nUpper TP accuracy = {:.2f}%".format(lower_accuracy*100.0,upper_accuracy*100.0))
+
+
+	print("Avg Lower TP accuracy = {:.2f}%\nAvg Upper TP accuracy = {:.2f}%".format(lower_accuracy_avg/len(result)*100.0,upper_accuracy_avg/len(result)*100.0))
 		# slice_list_of_list = []
 
 		# # use kmean clustering to classify upper jaw and lower jaw

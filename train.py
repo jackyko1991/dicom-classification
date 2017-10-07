@@ -59,7 +59,7 @@ def parser_init(parser):
 	args.data_folder = "/home/jacky/disk0/projects/Jaw/Data-DICOM/1_sorted"
 	args.csv = "/home/jacky/disk0/projects/Jaw/classification_annotation/set1_selected.csv"
 	args.snapshot = "/home/jacky/disk0/projects/Jaw/snapshot-classification"
-	args.resume = '/home/jacky/disk0/projects/Jaw/snapshot-classification/snapshot_0.pth.tar'
+	args.resume = '/home/jacky/disk0/projects/Jaw/snapshot-classification/snapshot_1450.pth.tar'
 	args.epochs = 2500
 	args.train_batch_size = 10
 	args.test_batch_size = 2
