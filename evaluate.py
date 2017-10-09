@@ -34,7 +34,7 @@ def parser_init(parser):
 	args.cuda = args.cuda and torch.cuda.is_available()
 
 	# change parser value here
-	args.snapshot = '/home/jacky/disk0/projects/Jaw/snapshot-classification/snapshot_1450.pth.tar'
+	args.snapshot = '/home/jacky/disk0/projects/Jaw/snapshot-classification/snapshot_2150.pth.tar'
 	args.data_folder = "/home/jacky/disk0/projects/Jaw/Data-DICOM/1_sorted/test"
 	args.arch = 'resnet18'
 	
@@ -129,6 +129,16 @@ def StringRangeToList(stringRange):
 			result.append(a)
 	return result
 
+def RemoveCommonElements(a, b):
+	# remove elements in a if appears in b
+	a_new = []
+	b_new = []
+	for i in a:
+		if i not in b:
+			a_new.append(i)
+
+	return a_new
+
 def main(parser):
 	args = parser_init(parser)
 
@@ -215,8 +225,15 @@ def main(parser):
 
 		print case
 		print("Lower TP accuracy = {:.2f}%\nUpper TP accuracy = {:.2f}%".format(lower_tp_accuracy*100.0,upper_tp_accuracy*100.0))
+		print("Lower count total = {}\nUpper count total = {}".format(len(lower_list_GT),len(upper_list_GT)))
+		print("Lower TP count = {}\nUpper TP count = {}".format(len(set(lower) & set(lower_list_GT)),len(set(upper) & set(upper_list_GT))))
 		# print("Lower FP accuracy = {:.2f}%\nUpper FP accuracy = {:.2f}%".format(lower_fp_accuracy*100.0,upper_fp_accuracy*100.0))
 		print("Lower FP count = {}\nUpper FP count = {}".format(lower_fp_count,upper_fp_count))
+		# print("Lower FP list")
+		# print(RemoveCommonElements(lower,lower_list_GT))
+		# print("Upper FP list")
+		# print(RemoveCommonElements(upper,upper_list_GT))
+		print upper
 
 	print("Avg Lower TP accuracy = {:.2f}%\nAvg Upper TP accuracy = {:.2f}%".format(lower_accuracy_tp_avg/len(result)*100.0,upper_accuracy_tp_avg/len(result)*100.0))
 	# print("Avg Lower FP accuracy = {:.2f}%\nAvg Upper FP accuracy = {:.2f}%".format(lower_accuracy_fp_avg/len(result)*100.0,upper_accuracy_fp_avg/len(result)*100.0))
